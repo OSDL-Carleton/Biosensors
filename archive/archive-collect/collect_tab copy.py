@@ -1,0 +1,342 @@
+import time
+import datetime
+import os
+import RPi.GPIO as GPIO
+import tkinter as tk
+from tkinter import ttk
+import openpyxl
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from . import ADS1256
+from . import DAC8532
+
+LED_PIN = 14
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED_PIN, GPIO.OUT)
+
+ADC = ADS1256.ADS1256()
+DAC = DAC8532.DAC8532()
+ADC.ADS1256_init()
+DAC.DAC8532_Out_Voltage(0x30, 3)
+DAC.DAC8532_Out_Voltage(0x34, 3)
+
+collecting_data = False
+
+voltages1, voltages2, voltages3 = [], [], []
+currents4, currents5, currents6 = [], [], []
+workbook = openpyxl.Workbook()
+worksheet = workbook.active
+worksheet.title = "Data Collection"
+worksheet.append(["Time", "V1 (V)", "V2 (V)", "V3 (V)", "I4 (A)", "I5 (A)", "I6 (A)"])
+
+
+def collect_tab(tab_collect, root):
+    left_frame_collect = tk.Frame(tab_collect, width=250, bg="lightgrey")
+    left_frame_collect.pack(fill="both", expand=False, side=tk.LEFT, padx=10, pady=10)
+
+    notebook_collect = ttk.Notebook(left_frame_collect)
+    notebook_collect.pack(fill="both", expand=True)
+
+    chip_name_entry, trial_name_entry = create_data_setup_frame(notebook_collect)
+    params_entries = create_params_frame(notebook_collect)
+    create_console_log_frame(notebook_collect)
+    create_controls_frame(
+        notebook_collect, chip_name_entry, trial_name_entry, params_entries, root
+    )
+
+    plot_frame_collect = tk.Frame(tab_collect, width=750)
+    plot_frame_collect.pack(fill="both", expand=True, side=tk.RIGHT)
+
+    create_plot_frame(plot_frame_collect)
+
+
+def create_controls_frame(
+    parent, chip_name_entry, trial_name_entry, params_entries, root
+):
+    frame_controls = tk.LabelFrame(
+        parent, text="Controls", relief=tk.SUNKEN, borderwidth=2
+    )
+    frame_controls.pack(fill="x", padx=10, pady=5)
+
+    def on_run():
+        global collecting_data
+        sweep_start = float(params_entries["sweep_min"].get())
+        sweep_end = float(params_entries["sweep_max"].get())
+        sweep_step = float(params_entries["sweep_step"].get())
+        interval = float(params_entries["step_interval"].get())
+        dac1_voltage = float(params_entries["dac1_voltage"].get())
+        duration = (
+            float(params_entries["duration"].get())
+            if "duration" in params_entries
+            else 120
+        )
+
+        DAC.DAC8532_Out_Voltage(DAC8532.channel_B, dac1_voltage)
+
+        collecting_data = True
+        perform_data_collection(
+            sweep_start, sweep_end, sweep_step, interval, duration, root
+        )
+
+    def on_end():
+        global collecting_data
+        collecting_data = False
+
+    def on_save():
+
+        chip_name = chip_name_entry.get()
+        trial_name = trial_name_entry.get()
+        save_data(chip_name, trial_name)
+
+    def on_reset():
+        global voltages1, voltages2, voltages3, currents4, currents5, currents6
+        voltages1, voltages2, voltages3 = [], [], []
+        currents4, currents5, currents6 = [], [], []
+        reset_plot()
+        reset_parameters(params_entries)
+
+    run_button = tk.Button(frame_controls, text="Run", width=15, command=on_run)
+    run_button.grid(row=0, column=0, padx=5, pady=5)
+
+    end_button = tk.Button(frame_controls, text="End", width=15, command=on_end)
+    end_button.grid(row=0, column=1, padx=5, pady=5)
+
+    save_button = tk.Button(frame_controls, text="Save", width=15, command=on_save)
+    save_button.grid(row=1, column=0, padx=5, pady=5)
+
+    reset_button = tk.Button(frame_controls, text="Reset", width=15, command=on_reset)
+    reset_button.grid(row=1, column=1, padx=5, pady=5)
+
+
+def perform_data_collection(
+    sweep_start, sweep_end, sweep_step, interval, duration, root
+):
+    global voltages1, voltages2, voltages3, currents4, currents5, currents6, collecting_data, current_voltage, steps_taken
+
+    current_voltage = sweep_start
+    steps_taken = 0
+    number_of_steps = int((sweep_end - sweep_start) / sweep_step) + 1
+    end_time = time.time() + duration
+
+    def collect_data():
+        global current_voltage, steps_taken
+        if not collecting_data or time.time() >= end_time:
+            return
+
+        DAC.DAC8532_Out_Voltage(DAC8532.channel_A, current_voltage)
+        GPIO.output(LED_PIN, GPIO.HIGH)
+
+        ADC_Value = ADC.ADS1256_GetAll()
+
+        v1 = ADC_Value[1] * 5.0 / 0x7FFFFF
+        v2 = ADC_Value[2] * 5.0 / 0x7FFFFF
+        v3 = ADC_Value[3] * 5.0 / 0x7FFFFF
+        shunt_voltage4 = ADC_Value[4] * 5.0 / 0x7FFFFF
+        shunt_voltage5 = ADC_Value[5] * 5.0 / 0x7FFFFF
+        shunt_voltage6 = ADC_Value[6] * 5.0 / 0x7FFFFF
+        current4 = shunt_voltage4 / 10.0
+        current5 = shunt_voltage5 / 10.0
+        current6 = shunt_voltage6 / 10.0
+
+        voltages1.append(v1)
+        voltages2.append(v2)
+        voltages3.append(v3)
+        currents4.append(current4)
+        currents5.append(current5)
+        currents6.append(current6)
+
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        worksheet.append([current_time, v1, v2, v3, current4, current5, current6])
+
+        update_plot()
+
+        voltage1_label.config(text=f"V1: {v1:.5f} V")
+        voltage2_label.config(text=f"V2: {v2:.5f} V")
+        voltage3_label.config(text=f"V3: {v3:.5f} V")
+        current4_label.config(text=f"I4: {current4:.5f} A")
+        current5_label.config(text=f"I5: {current5:.5f} A")
+        current6_label.config(text=f"I6: {current6:.5f} A")
+
+        GPIO.output(LED_PIN, GPIO.LOW)
+        current_voltage += sweep_step
+        steps_taken += 1
+        root.after(int(interval * 1000), collect_data)
+
+    collect_data()
+
+
+def save_data(chip_name, trial_name):
+
+    base_dir = "/home/pi/Desktop/Biosensor V2/data"
+
+    chip_path = os.path.join(base_dir, chip_name)
+    if not os.path.exists(chip_path):
+        os.makedirs(chip_path)
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    trial_folder_name = f"{trial_name} - {timestamp}"
+    trial_path = os.path.join(chip_path, trial_folder_name)
+    os.makedirs(trial_path, exist_ok=True)
+
+    filename = os.path.join(trial_path, f"{trial_name}_{timestamp}.xlsx")
+    workbook.save(filename)
+
+
+def reset_plot():
+    global ax, canvas
+    ax.clear()
+    ax.set_xlabel("V2 (Voltage)")
+    ax.set_ylabel("I4 (Current)")
+    ax.set_xlim(0, 5)
+    ax.set_ylim(0, 1)
+    canvas.draw_idle()
+
+
+def reset_parameters(params_entries):
+    params_entries["duration"].delete(0, tk.END)
+    params_entries["duration"].insert(0, "120")
+
+    params_entries["sweep_min"].delete(0, tk.END)
+    params_entries["sweep_min"].insert(0, "0.0")
+
+    params_entries["sweep_max"].delete(0, tk.END)
+    params_entries["sweep_max"].insert(0, "5.0")
+
+    params_entries["sweep_step"].delete(0, tk.END)
+    params_entries["sweep_step"].insert(0, "0.1")
+
+    params_entries["step_interval"].delete(0, tk.END)
+    params_entries["step_interval"].insert(0, "1")
+
+    params_entries["dac1_voltage"].delete(0, tk.END)
+    params_entries["dac1_voltage"].insert(0, "0.5")
+
+
+def create_data_setup_frame(parent):
+    frame_data_setup = tk.LabelFrame(
+        parent, text="Data Setup", relief=tk.SUNKEN, borderwidth=2
+    )
+    frame_data_setup.pack(fill="x", padx=10, pady=10)
+
+    tk.Label(frame_data_setup, text="Chip Name:").grid(
+        row=0, column=0, sticky="e", padx=5, pady=5
+    )
+    chip_name_entry = tk.Entry(frame_data_setup, width=20)
+    chip_name_entry.grid(row=0, column=1, padx=5, pady=5)
+    chip_name_entry.insert(0, "Default Chip")
+
+    tk.Label(frame_data_setup, text="Trial Name:").grid(
+        row=1, column=0, sticky="e", padx=5, pady=5
+    )
+    trial_name_entry = tk.Entry(frame_data_setup, width=20)
+    trial_name_entry.grid(row=1, column=1, padx=5, pady=5)
+    trial_name_entry.insert(0, "Trial 1")
+
+    return chip_name_entry, trial_name_entry
+
+
+def create_params_frame(parent):
+    frame_params = tk.LabelFrame(
+        parent, text="Parameters", relief=tk.SUNKEN, borderwidth=2
+    )
+    frame_params.pack(fill="x", padx=10, pady=10)
+
+    params_entries = {}
+
+    tk.Label(frame_params, text="Duration (s):").grid(
+        row=0, column=0, sticky="e", padx=5, pady=5
+    )
+    duration_entry = tk.Entry(frame_params, width=20)
+    duration_entry.grid(row=0, column=1, columnspan=3, pady=5, sticky="w")
+    duration_entry.insert(0, "120")
+    params_entries["duration"] = duration_entry
+
+    tk.Label(frame_params, text="Sweep Voltage (V):").grid(
+        row=1, column=0, sticky="e", padx=5, pady=5
+    )
+    sweep_min_entry = tk.Entry(frame_params, width=8)
+    sweep_min_entry.grid(row=1, column=1, padx=(0, 2), pady=5, sticky="w")
+    sweep_min_entry.insert(0, "0.0")
+    params_entries["sweep_min"] = sweep_min_entry
+    tk.Label(frame_params, text="to").grid(row=1, column=2, padx=(2, 2), sticky="w")
+    sweep_max_entry = tk.Entry(frame_params, width=8)
+    sweep_max_entry.grid(row=1, column=3, padx=(2, 5), pady=5, sticky="w")
+    sweep_max_entry.insert(0, "5.0")
+    params_entries["sweep_max"] = sweep_max_entry
+
+    tk.Label(frame_params, text="Step Voltage (V):").grid(
+        row=2, column=0, sticky="e", padx=5, pady=5
+    )
+    sweep_step_entry = tk.Entry(frame_params, width=20)
+    sweep_step_entry.grid(row=2, column=1, columnspan=3, pady=5, sticky="w")
+    sweep_step_entry.insert(0, "0.1")
+    params_entries["sweep_step"] = sweep_step_entry
+
+    tk.Label(frame_params, text="Step Interval (s):").grid(
+        row=3, column=0, sticky="e", padx=5, pady=5
+    )
+    step_interval_entry = tk.Entry(frame_params, width=20)
+    step_interval_entry.grid(row=3, column=1, columnspan=3, pady=5, sticky="w")
+    step_interval_entry.insert(0, "1")
+    params_entries["step_interval"] = step_interval_entry
+
+    tk.Label(frame_params, text="DAC1 Voltage (V):").grid(
+        row=4, column=0, sticky="e", padx=5, pady=5
+    )
+    dac1_voltage_entry = tk.Entry(frame_params, width=20)
+    dac1_voltage_entry.grid(row=4, column=1, columnspan=3, pady=5, sticky="w")
+    dac1_voltage_entry.insert(0, "0.5")
+    params_entries["dac1_voltage"] = dac1_voltage_entry
+
+    return params_entries
+
+
+def create_plot_frame(parent):
+    global fig, ax, canvas
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("V2 (Voltage)")
+    ax.set_ylabel("I4 (Current)")
+    ax.set_xlim(0, 5)
+    ax.set_ylim(0, 1)
+    ax.legend(["I4 vs V2"], loc="upper left")
+
+    canvas = FigureCanvasTkAgg(fig, master=parent)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    toolbar = NavigationToolbar2Tk(canvas, parent)
+    toolbar.update()
+    toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+
+def update_plot():
+    global fig, ax, canvas, voltages1, voltages2, voltages3, currents4, currents5, currents6
+
+    ax.clear()
+    ax.plot(voltages2, currents4, label="I4 vs V2", color="blue")
+    ax.set_xlabel("V2 (Voltage)")
+    ax.set_ylabel("I4 (Current)")
+    ax.legend()
+    ax.relim()
+    ax.autoscale_view()
+
+    canvas.draw_idle()
+
+
+def create_console_log_frame(parent):
+    frame_output = tk.LabelFrame(
+        parent, text="Console Log", relief=tk.SUNKEN, borderwidth=2
+    )
+    frame_output.pack(fill="both", padx=10, pady=5, expand=True)
+
+    output_text = tk.Text(frame_output, height=5, width=40, wrap="none", bg="white")
+    scrollbar = tk.Scrollbar(
+        frame_output, orient=tk.VERTICAL, command=output_text.yview
+    )
+    output_text.config(yscrollcommand=scrollbar.set)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    output_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    return output_text
