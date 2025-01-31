@@ -177,13 +177,13 @@ def perform_data_collection(
             ADC_Value = ADC.ADS1256_GetAll()
 
             v1 = ADC_Value[1] * 5.0 / 0x7FFFFF
-            v2 = ADC_Value[3] * 5.0 / 0x7FFFFF
+            v2 = ADC_Value[2] * 5.0 / 0x7FFFFF
             v3 = ADC_Value[3] * 5.0 / 0x7FFFFF
 
             shunt_voltage4 = ADC_Value[4] * 5.0 / 0x7FFFFF
             shunt_voltage5 = ADC_Value[5] * 5.0 / 0x7FFFFF
             shunt_voltage6 = ADC_Value[6] * 5.0 / 0x7FFFFF
-            current4 = v1 - shunt_voltage4
+            current4 = v3 - v1
             current5 = shunt_voltage5 / 100.0
             current6 = shunt_voltage6 / 100.0
 
@@ -320,8 +320,8 @@ def save_excel_file(
 def reset_plot():
     global ax, canvas
     ax.clear()
-    ax.set_xlabel("VDS (Voltage)")
-    ax.set_ylabel("Delta V On Source (Voltage)")
+    ax.set_xlabel("V2 (Voltage)")
+    ax.set_ylabel("I4 (Current)")
     ax.set_xlim(0, 5)
     ax.set_ylim(0, 1)
     canvas.draw_idle()
@@ -430,8 +430,8 @@ def create_plot_frame(parent):
     global fig, ax, canvas
 
     fig, ax = plt.subplots()
-    ax.set_xlabel("VDS (Voltage)")
-    ax.set_ylabel("Delta V On Source (Voltage)")
+    ax.set_xlabel("V2 (Voltage)")
+    ax.set_ylabel("I4 (Current)")
     ax.set_xlim(0, 5)
     ax.set_ylim(0, 1)
     ax.legend(["I4 vs V2"], loc="upper left")
@@ -459,8 +459,8 @@ def update_plot(dac1_voltage):
             color=color,
         )
 
-    ax.set_xlabel("VDS (Voltage)")
-    ax.set_ylabel("Delta V On Source (Voltage)")
+    ax.set_xlabel("V2 (Voltage)")
+    ax.set_ylabel("I4 (Current)")
     ax.legend(loc="upper left")
     ax.relim()
     ax.autoscale_view()
