@@ -176,16 +176,16 @@ def perform_data_collection(
 
             ADC_Value = ADC.ADS1256_GetAll()
 
-            v1 = ADC_Value[1] * 5.0 / 0x7FFFFF
-            v2 = ADC_Value[3] * 5.0 / 0x7FFFFF #VD
-            v3 = ADC_Value[3] * 5.0 / 0x7FFFFF
+            v1 = ADC_Value[1] * 5.0 / 0x7FFFFF #vs
+            v2 = ADC_Value[2] * 5.0 / 0x7FFFFF #vg
+            v3 = ADC_Value[3] * 5.0 / 0x7FFFFF #vd
 
-            shunt_voltage4 = ADC_Value[4] * 5.0 / 0x7FFFFF
-            shunt_voltage5 = ADC_Value[5] * 5.0 / 0x7FFFFF
-            shunt_voltage6 = ADC_Value[6] * 5.0 / 0x7FFFFF
-            current4 = v1 - shunt_voltage4 #VS - shunt
-            current5 = shunt_voltage5 / 100.0
-            current6 = shunt_voltage6 / 100.0
+            v4 = ADC_Value[4] * 5.0 / 0x7FFFFF
+            v5 = ADC_Value[5] * 5.0 / 0x7FFFFF
+            v6 = ADC_Value[6] * 5.0 / 0x7FFFFF
+            current4 = v1 - v4 #VS - v4
+            current5 = v2 - v5 
+            current6 = v3 - v6
 
             voltages1.append(v1)
             voltages2.append(v2)
@@ -320,7 +320,7 @@ def save_excel_file(
 def reset_plot():
     global ax, canvas
     ax.clear()
-    ax.set_xlabel("VDS (Voltage)")
+    ax.set_xlabel("VD (Voltage)")
     ax.set_ylabel("Delta V On Source (Voltage)")
     ax.set_xlim(0, 5)
     ax.set_ylim(0, 1)
@@ -430,7 +430,7 @@ def create_plot_frame(parent):
     global fig, ax, canvas
 
     fig, ax = plt.subplots()
-    ax.set_xlabel("VDS (Voltage)")
+    ax.set_xlabel("VD (Voltage)")
     ax.set_ylabel("Delta V On Source (Voltage)")
     ax.set_xlim(0, 5)
     ax.set_ylim(0, 1)
@@ -453,14 +453,14 @@ def update_plot(dac1_voltage):
     for i, dac1 in enumerate(data_by_dac1):
         color = plot_colors[i % len(plot_colors)]
         ax.plot(
-            data_by_dac1[dac1]["voltages2"],
+            data_by_dac1[dac1]["voltages3"],
             data_by_dac1[dac1]["currents4"],
             label=f"DAC1 = {dac1:.2f} V",
             color=color,
         )
 
     ax.set_xlabel("VDS (Voltage)")
-    ax.set_ylabel("Delta V On Source (Voltage)")
+    ax.set_ylabel("Delta V (Voltage)")
     ax.legend(loc="upper left")
     ax.relim()
     ax.autoscale_view()
