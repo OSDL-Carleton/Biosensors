@@ -7,11 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/12tu3__0WeNjiUemp8nQi8FK1QLfXU1CL
 """
 
-!pip install pandas
-!pip install matplotlib
-!pip install scipy
-!pip install black[jupyter] --quiet
-
 "https://drive.google.com/drive/folders/1qdPysatcKd2P2pZ9KTqqd9lPTptuKtRM?usp=sharing"
 
 from google.colab import drive
