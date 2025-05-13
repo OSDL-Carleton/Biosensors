@@ -14,6 +14,10 @@ LED_PIN = 14
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(LED_PIN, GPIO.OUT)
+SELECT_PIN = 26
+
+GPIO.setup(SELECT_PIN, GPIO.OUT)     # set as output
+GPIO.output(SELECT_PIN, GPIO.LOW)   # set pin HIGH (3.3V)
 
 ADC = ADS1256.ADS1256()
 DAC = DAC8532.DAC8532()
@@ -27,10 +31,30 @@ currents4, currents5, currents6 = [], [], []
 
 
 def collect_tab(tab_collect, root):
-    left_frame_collect = tk.Frame(tab_collect, width=250, bg="lightgrey")
-    left_frame_collect.pack(fill="both", expand=False, side=tk.LEFT, padx=10, pady=10)
+    # ─── Scrollable Left Pane Setup ────────────────────────────────────────────
+    container = tk.Frame(tab_collect, width=250, bg="lightgrey")
+    container.pack(fill="both", side=tk.LEFT, padx=10, pady=10)
 
-    notebook_collect = ttk.Notebook(left_frame_collect)
+    # 1) Canvas + scrollbar
+    canvas = tk.Canvas(container, borderwidth=0, background="lightgrey")
+    vscroll = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=vscroll.set)
+
+    vscroll.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    # 2) Interior frame into which you’ll pack everything
+    scrollable_frame = tk.Frame(canvas, background="lightgrey")
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+    # 3) Update scrollregion whenever the interior frame changes size
+    def on_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+    scrollable_frame.bind("<Configure>", on_configure)
+    # ────────────────────────────────────────────────────────────────────────────
+
+    # Now use scrollable_frame in place of left_frame_collect…
+    notebook_collect = ttk.Notebook(scrollable_frame)
     notebook_collect.pack(fill="both", expand=True)
 
     chip_name_entry, trial_name_entry = create_data_setup_frame(notebook_collect)
@@ -40,10 +64,11 @@ def collect_tab(tab_collect, root):
         notebook_collect, chip_name_entry, trial_name_entry, params_entries, root
     )
 
+    # …and the right‐hand plot pane stays the same:
     plot_frame_collect = tk.Frame(tab_collect, width=750)
     plot_frame_collect.pack(fill="both", expand=True, side=tk.RIGHT)
-
     create_plot_frame(plot_frame_collect)
+
 
 
 def create_controls_frame(

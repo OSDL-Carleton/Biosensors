@@ -9,7 +9,21 @@ from settings.settings_tab import settings_tab
 def main():
     root = tk.Tk()
     root.title("OSDL OEGFET")
-    root.geometry("1000x600")
+    
+
+    
+    sw = root.winfo_screenwidth()
+    sh = root.winfo_screenheight()
+
+    # e.g. leave a 5% padding all around
+    w = int(sw * 0.9)
+    h = int(sh * 0.9)
+    x = int((sw - w) / 2)
+    y = int((sh - h) / 2)
+
+    root.geometry(f"{w}x{h}+{x}+{y}")
+    # root.attributes('-fullscreen', True)
+    #root.geometry("800x360")
     root.configure(bg="lightgrey")
 
     style = ttk.Style()
@@ -57,6 +71,15 @@ def main():
     tab_settings = ttk.Frame(notebook)
     notebook.add(tab_settings, text="Settings")
     settings_tab(tab_settings)
+
+    
+
+    def toggle_fullscreen(event=None):
+        is_fs = root.attributes('-fullscreen')
+        root.attributes('-fullscreen', not is_fs)
+
+    root.bind('<F11>', toggle_fullscreen)
+    root.bind('<Escape>', lambda e: root.attributes('-fullscreen', False))
 
     root.mainloop()
 
