@@ -37,10 +37,10 @@ def collect_tab(tab_collect, root):
 
     # 1) Canvas + scrollbar
     canvas = tk.Canvas(container, borderwidth=0, background="lightgrey")
-    vscroll = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=vscroll.set)
+    #vscroll = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+    #canvas.configure(yscrollcommand=vscroll.set)
 
-    vscroll.pack(side="right", fill="y")
+    #ssvscroll.pack(side="right", fill="y")
     canvas.pack(side="left", fill="both", expand=True)
 
     # 2) Interior frame into which you’ll pack everything
@@ -211,10 +211,11 @@ def perform_data_collection(
             current4 = v1 - v4 #VS - v4
             current5 = v2 - v5 
             current6 = v3 - v6
+            vds = v3 - v1
 
             voltages1.append(v1)
             voltages2.append(v2)
-            voltages3.append(v3)
+            voltages3.append(vds)
             currents4.append(current4)
             currents5.append(current5)
             currents6.append(current6)
@@ -500,7 +501,7 @@ def create_console_log_frame(parent):
     frame_output.pack(fill="both", padx=10, pady=0, expand=True)
 
     global output_text
-    output_text = tk.Text(frame_output, height=3, width=40, wrap="none", bg="white")
+    output_text = tk.Text(frame_output, height=6, width=40, wrap="none", bg="white")
     scrollbar = tk.Scrollbar(
         frame_output, orient=tk.VERTICAL, command=output_text.yview
     )
