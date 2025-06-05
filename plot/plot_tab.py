@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog
 import openpyxl
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.pyplot as plt
+import os
 
 
 def plot_tab(tab_plot):
@@ -59,7 +60,7 @@ def create_controls_frame(parent):
             )
             output_text.see(tk.END)
 
-    run_button = tk.Button(frame_controls, text="Run", width=15, command=run_plot)
+    run_button = tk.Button(frame_controls, text="Run", width=15, height=2, command=run_plot)
     run_button.pack(padx=5, pady=10)
 
 
@@ -86,7 +87,7 @@ def create_data_setup_frame(parent):
     tk.Label(frame_data_setup, text="Select File:").grid(
         row=0, column=0, sticky="e", padx=5, pady=5
     )
-    select_file_button = tk.Button(frame_data_setup, text="Browse", command=select_file)
+    select_file_button = tk.Button(frame_data_setup, text="Browse", width=15 ,height=2, command=select_file)
     select_file_button.grid(row=0, column=1, padx=5, pady=5)
 
     file_label = tk.Label(
@@ -107,7 +108,7 @@ def create_plot_frame(parent):
     plot_container.pack(fill="both", expand=True, padx=10, pady=10)
 
     fig, ax = plt.subplots()
-    ax.set_xlabel("V2 (Voltage)")
+    ax.set_xlabel("V2 (Sweep Voltage)")
     ax.set_ylabel("I4 (Current)")
     canvas = FigureCanvasTkAgg(fig, master=plot_container)
     canvas.draw()
@@ -148,7 +149,15 @@ def plot_from_file(file_path):
 
         ax.plot(v2_values, i4_values, label=f"DAC1 = {dac1_value}", color=colors(idx))
 
-    ax.set_xlabel("V2 (Voltage)")
+    # Sweep voltage label
+    filename = os.path.basename(file_path).upper()
+    if "IG" in filename:
+        ax.set_xlabel("VG (Gate Voltage)")
+    elif "ID" in filename:
+        ax.set_xlabel("VD (Drain Voltage)")
+    else:
+        ax.set_xlabel("V2 (Sweep Voltage)")
+
     ax.set_ylabel("I4 (Current)")
     ax.legend(title="DAC1 Values")
     ax.relim()
