@@ -5,6 +5,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import matplotlib.pyplot as plt
 import os
 
+# Global variables
+selected_files = []
+current_file_index = 0
+
 
 def plot_tab(tab_plot):
     left_frame_plot = tk.Frame(tab_plot, width=250, bg="lightgrey")
@@ -40,24 +44,16 @@ def create_console_log_frame(parent):
 
 
 def create_controls_frame(parent):
-    global selected_file
-
     frame_controls = tk.LabelFrame(
         parent, text="Controls", relief=tk.SUNKEN, borderwidth=2
     )
     frame_controls.pack(fill="x", padx=10, pady=5)
 
-    selected_file = None
-
     def run_plot():
-        if selected_file:
-            output_text.insert(tk.END, f"Plotting data from: {selected_file}\n")
-            output_text.see(tk.END)
-            plot_from_file(selected_file)
+        if selected_files:
+            plot_from_file(selected_files[current_file_index])
         else:
-            output_text.insert(
-                tk.END, "No file selected. Please select a file first.\n"
-            )
+            output_text.insert(tk.END, "No file selected. Please select a file first.\n")
             output_text.see(tk.END)
 
     run_button = tk.Button(frame_controls, text="Run", width=15, height=2, command=run_plot)
@@ -65,7 +61,7 @@ def create_controls_frame(parent):
 
 
 def create_data_setup_frame(parent):
-    global selected_file, file_label
+    global file_label
 
     frame_data_setup = tk.LabelFrame(
         parent, text="Data Setup", relief=tk.SUNKEN, borderwidth=2
@@ -73,21 +69,23 @@ def create_data_setup_frame(parent):
     frame_data_setup.pack(fill="x", padx=10, pady=10)
 
     def select_file():
-        global selected_file
-        selected_file = filedialog.askopenfilename(
+        global selected_files, current_file_index
+        selected_files = filedialog.askopenfilenames(
             initialdir="/home/pi/Desktop/Biosensor V2/data",
-            title="Select an ISID Excel File",
+            title="Select ISID Excel Files",
             filetypes=(("Excel files", "*.xlsx"), ("All files", "*.*")),
         )
-        if selected_file:
-            file_label.config(text=selected_file)
-            output_text.insert(tk.END, f"Selected file: {selected_file}\n")
+        selected_files = list(selected_files)
+        if selected_files:
+            file_label.config(text="\n".join(os.path.basename(f) for f in selected_files))
+            output_text.insert(tk.END, f"Selected files:\n" + "\n".join(selected_files) + "\n")
             output_text.see(tk.END)
+            current_file_index = 0
 
     tk.Label(frame_data_setup, text="Select File:").grid(
         row=0, column=0, sticky="e", padx=5, pady=5
     )
-    select_file_button = tk.Button(frame_data_setup, text="Browse", width=15 ,height=2, command=select_file)
+    select_file_button = tk.Button(frame_data_setup, text="Browse", width=15, height=2, command=select_file)
     select_file_button.grid(row=0, column=1, padx=5, pady=5)
 
     file_label = tk.Label(
@@ -117,6 +115,26 @@ def create_plot_frame(parent):
     toolbar = NavigationToolbar2Tk(canvas, plot_container)
     toolbar.update()
     toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def show_prev_file():
+        global current_file_index
+        if selected_files:
+            current_file_index = (current_file_index - 1) % len(selected_files)
+            plot_from_file(selected_files[current_file_index])
+
+    def show_next_file():
+        global current_file_index
+        if selected_files:
+            current_file_index = (current_file_index + 1) % len(selected_files)
+            plot_from_file(selected_files[current_file_index])
+
+    nav_frame = tk.Frame(plot_container)
+    nav_frame.pack(side=tk.BOTTOM, pady=5)
+
+    prev_button = tk.Button(nav_frame, text="← Prev File", command=show_prev_file)
+    next_button = tk.Button(nav_frame, text="Next File →", command=show_next_file)
+    prev_button.pack(side=tk.LEFT, padx=5)
+    next_button.pack(side=tk.LEFT, padx=5)
 
 
 def plot_from_file(file_path):
@@ -151,14 +169,19 @@ def plot_from_file(file_path):
 
     # Sweep voltage label
     filename = os.path.basename(file_path).upper()
-    if "IG" in filename:
+    if "VSG" in filename:
         ax.set_xlabel("VG (Gate Voltage)")
-    elif "ID" in filename:
+    elif "VSD" in filename:
         ax.set_xlabel("VD (Drain Voltage)")
     else:
         ax.set_xlabel("V2 (Sweep Voltage)")
 
-    ax.set_ylabel("I4 (Current)")
+    if "IG" in filename:
+        ax.set_ylabel("IG (Gate Current)")
+    elif "ID" in filename:
+        ax.set_ylabel("ID (Drain Current)")
+    else:
+        ax.set_ylabel("I4 (Current)")
     ax.legend(title="DAC1 Values")
     ax.relim()
     ax.autoscale_view()
@@ -166,3 +189,5 @@ def plot_from_file(file_path):
 
     output_text.insert(tk.END, f"Plotted data from {file_path} with DAC1 values.\n")
     output_text.see(tk.END)
+
+    
