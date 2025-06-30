@@ -10,8 +10,14 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from . import ADS1256
 from . import DAC8532
 
+LED_PIN = 14
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED_PIN, GPIO.OUT)
+SELECT_PIN = 26
+
+GPIO.setup(SELECT_PIN, GPIO.OUT)  # set as output
+GPIO.output(SELECT_PIN, GPIO.LOW)  # set pin HIGH (3.3V)
 
 ADC = ADS1256.ADS1256()
 DAC = DAC8532.DAC8532()
@@ -23,29 +29,32 @@ collecting_data = False
 voltages1, voltages2, voltages3 = [], [], []
 currents4, currents5, currents6 = [], [], []
 
-DEFAULT_CHIP_NAME = "Default Chip"
-DEFAULT_TRIAL_NAME = "Trial 1"
-DEFAULT_DURATION = "120"
-DEFAULT_SWEEP_MIN = "3.0"
-DEFAULT_SWEEP_MAX = "0.0"
-DEFAULT_SWEEP_STEP = "-0.1"
-DEFAULT_STEP_INTERVAL = "1"
-DEFAULT_DAC1_VOLTAGE = "0.5"
-
 
 def collect_tab(tab_collect, root):
+    # ─── Scrollable Left Pane Setup ────────────────────────────────────────────
     container = tk.Frame(tab_collect, width=250, bg="lightgrey")
     container.pack(fill="both", side=tk.LEFT, padx=10, pady=10)
+
+    # 1) Canvas + scrollbar
     canvas = tk.Canvas(container, borderwidth=0, background="lightgrey")
+    # vscroll = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+    # canvas.configure(yscrollcommand=vscroll.set)
+
+    # ssvscroll.pack(side="right", fill="y")
     canvas.pack(side="left", fill="both", expand=True)
+
+    # 2) Interior frame into which you’ll pack everything
     scrollable_frame = tk.Frame(canvas, background="lightgrey")
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
+    # 3) Update scrollregion whenever the interior frame changes size
     def on_configure(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
 
     scrollable_frame.bind("<Configure>", on_configure)
+    # ────────────────────────────────────────────────────────────────────────────
 
+    # Now use scrollable_frame in place of left_frame_collect…
     notebook_collect = ttk.Notebook(scrollable_frame)
     notebook_collect.pack(fill="both", expand=True)
 
@@ -56,6 +65,7 @@ def collect_tab(tab_collect, root):
         notebook_collect, chip_name_entry, trial_name_entry, params_entries, root
     )
 
+    # …and the right‐hand plot pane stays the same:
     plot_frame_collect = tk.Frame(tab_collect, width=750)
     plot_frame_collect.pack(fill="both", expand=True, side=tk.RIGHT)
     create_plot_frame(plot_frame_collect)
@@ -187,17 +197,18 @@ def perform_data_collection(
 
             DAC.DAC8532_Out_Voltage(DAC8532.channel_B, dac1_voltage)
             DAC.DAC8532_Out_Voltage(DAC8532.channel_A, current_voltage)
+            GPIO.output(LED_PIN, GPIO.HIGH)
 
             ADC_Value = ADC.ADS1256_GetAll()
 
-            v1 = ADC_Value[1] * 5.0 / 0x7FFFFF
-            v2 = ADC_Value[2] * 5.0 / 0x7FFFFF
-            v3 = ADC_Value[3] * 5.0 / 0x7FFFFF
+            v1 = ADC_Value[1] * 5.0 / 0x7FFFFF  # vs
+            v2 = ADC_Value[2] * 5.0 / 0x7FFFFF  # vg
+            v3 = ADC_Value[3] * 5.0 / 0x7FFFFF  # vd
 
             v4 = ADC_Value[4] * 5.0 / 0x7FFFFF
             v5 = ADC_Value[5] * 5.0 / 0x7FFFFF
             v6 = ADC_Value[6] * 5.0 / 0x7FFFFF
-            current4 = v1 - v4
+            current4 = v1 - v4  # VS - v4
             current5 = v2 - v5
             current6 = v3 - v6
 
@@ -226,6 +237,8 @@ def perform_data_collection(
             )
             output_text.insert(tk.END, log_entry)
             output_text.see(tk.END)
+
+            GPIO.output(LED_PIN, GPIO.LOW)
 
             current_voltage += sweep_step
             steps_taken += 1
@@ -286,7 +299,7 @@ def save_excel_file(
     worksheet.cell(row=4, column=1, value="Sweep Points:")
     worksheet.cell(row=4, column=2, value=sweep_points)
 
-    headers = ["X-Axis VSD (V)"]  # Changed to VSD
+    headers = ["X-Axis (V)"]
     for dac1_voltage in data_by_dac1:
         headers.append(f"{dac1_voltage:.6f}")
     for dac1_voltage in data_by_dac1:
@@ -294,23 +307,17 @@ def save_excel_file(
     worksheet.append(headers)
 
     max_length = max(
-        len(data_by_dac1[dac1_voltage]["voltages1"]) for dac1_voltage in data_by_dac1
+        len(data_by_dac1[dac1_voltage]["voltages2"]) for dac1_voltage in data_by_dac1
     )
     for i in range(max_length):
         row_data = []
 
-        # Calculate VSD = V1 - V3 for X-axis
-        first_dac = next(iter(data_by_dac1))
-        if i < len(data_by_dac1[first_dac]["voltages1"]) and i < len(
-            data_by_dac1[first_dac]["voltages3"]
-        ):
-            vsd_value = (
-                data_by_dac1[first_dac]["voltages1"][i]
-                - data_by_dac1[first_dac]["voltages3"][i]
-            )
-        else:
-            vsd_value = ""
-        row_data.append(vsd_value)
+        v2_value = (
+            data_by_dac1[next(iter(data_by_dac1))]["voltages2"][i]
+            if i < len(data_by_dac1[next(iter(data_by_dac1))]["voltages2"])
+            else ""
+        )
+        row_data.append(v2_value)
 
         for dac1_voltage in data_by_dac1:
             i4_value = (
@@ -338,31 +345,31 @@ def save_excel_file(
 def reset_plot():
     global ax, canvas
     ax.clear()
-    ax.set_xlabel("VSD (Voltage)")  # VSD = V1 - V3
+    ax.set_xlabel("VD (Voltage)")
     ax.set_ylabel("Delta V On Source (Voltage)")
-    ax.set_xlim(-3, 3)  # Adjusted for VSD = V1 - V3
+    ax.set_xlim(0, 5)
     ax.set_ylim(0, 1)
     canvas.draw_idle()
 
 
 def reset_parameters(params_entries):
     params_entries["duration"].delete(0, tk.END)
-    params_entries["duration"].insert(0, DEFAULT_DURATION)
+    params_entries["duration"].insert(0, "120")
 
     params_entries["sweep_min"].delete(0, tk.END)
-    params_entries["sweep_min"].insert(0, DEFAULT_SWEEP_MIN)
+    params_entries["sweep_min"].insert(0, "0.0")
 
     params_entries["sweep_max"].delete(0, tk.END)
-    params_entries["sweep_max"].insert(0, DEFAULT_SWEEP_MAX)
+    params_entries["sweep_max"].insert(0, "3.0")
 
     params_entries["sweep_step"].delete(0, tk.END)
-    params_entries["sweep_step"].insert(0, DEFAULT_SWEEP_STEP)
+    params_entries["sweep_step"].insert(0, "0.1")
 
     params_entries["step_interval"].delete(0, tk.END)
-    params_entries["step_interval"].insert(0, DEFAULT_STEP_INTERVAL)
+    params_entries["step_interval"].insert(0, "1")
 
     params_entries["dac1_voltage"].delete(0, tk.END)
-    params_entries["dac1_voltage"].insert(0, DEFAULT_DAC1_VOLTAGE)
+    params_entries["dac1_voltage"].insert(0, "0.5")
 
 
 def create_data_setup_frame(parent):
@@ -376,14 +383,14 @@ def create_data_setup_frame(parent):
     )
     chip_name_entry = tk.Entry(frame_data_setup, width=20)
     chip_name_entry.grid(row=0, column=1, padx=5, pady=5)
-    chip_name_entry.insert(0, DEFAULT_CHIP_NAME)
+    chip_name_entry.insert(0, "Default Chip")
 
     tk.Label(frame_data_setup, text="Trial Name:").grid(
         row=1, column=0, sticky="e", padx=5, pady=5
     )
     trial_name_entry = tk.Entry(frame_data_setup, width=20)
     trial_name_entry.grid(row=1, column=1, padx=5, pady=5)
-    trial_name_entry.insert(0, DEFAULT_TRIAL_NAME)
+    trial_name_entry.insert(0, "Trial 1")
 
     return chip_name_entry, trial_name_entry
 
@@ -401,7 +408,7 @@ def create_params_frame(parent):
     )
     duration_entry = tk.Entry(frame_params, width=20)
     duration_entry.grid(row=0, column=1, columnspan=3, pady=5, sticky="w")
-    duration_entry.insert(0, DEFAULT_DURATION)
+    duration_entry.insert(0, "120")
     params_entries["duration"] = duration_entry
 
     tk.Label(frame_params, text="Sweep Voltage (V):").grid(
@@ -409,12 +416,12 @@ def create_params_frame(parent):
     )
     sweep_min_entry = tk.Entry(frame_params, width=8)
     sweep_min_entry.grid(row=1, column=1, padx=(0, 2), pady=5, sticky="w")
-    sweep_min_entry.insert(0, DEFAULT_SWEEP_MIN)
+    sweep_min_entry.insert(0, "0.0")
     params_entries["sweep_min"] = sweep_min_entry
     tk.Label(frame_params, text="to").grid(row=1, column=2, padx=(2, 2), sticky="w")
     sweep_max_entry = tk.Entry(frame_params, width=8)
     sweep_max_entry.grid(row=1, column=3, padx=(2, 5), pady=5, sticky="w")
-    sweep_max_entry.insert(0, DEFAULT_SWEEP_MAX)
+    sweep_max_entry.insert(0, "3.0")
     params_entries["sweep_max"] = sweep_max_entry
 
     tk.Label(frame_params, text="Step Voltage (V):").grid(
@@ -422,7 +429,7 @@ def create_params_frame(parent):
     )
     sweep_step_entry = tk.Entry(frame_params, width=20)
     sweep_step_entry.grid(row=2, column=1, columnspan=3, pady=5, sticky="w")
-    sweep_step_entry.insert(0, DEFAULT_SWEEP_STEP)
+    sweep_step_entry.insert(0, "0.1")
     params_entries["sweep_step"] = sweep_step_entry
 
     tk.Label(frame_params, text="Step Interval (s):").grid(
@@ -430,7 +437,7 @@ def create_params_frame(parent):
     )
     step_interval_entry = tk.Entry(frame_params, width=20)
     step_interval_entry.grid(row=3, column=1, columnspan=3, pady=5, sticky="w")
-    step_interval_entry.insert(0, DEFAULT_STEP_INTERVAL)
+    step_interval_entry.insert(0, "1")
     params_entries["step_interval"] = step_interval_entry
 
     tk.Label(frame_params, text="DAC1 Voltage (V):").grid(
@@ -438,7 +445,7 @@ def create_params_frame(parent):
     )
     dac1_voltage_entry = tk.Entry(frame_params, width=20)
     dac1_voltage_entry.grid(row=4, column=1, columnspan=3, pady=5, sticky="w")
-    dac1_voltage_entry.insert(0, DEFAULT_DAC1_VOLTAGE)
+    dac1_voltage_entry.insert(0, "0.5")
     params_entries["dac1_voltage"] = dac1_voltage_entry
 
     return params_entries
@@ -448,11 +455,11 @@ def create_plot_frame(parent):
     global fig, ax, canvas
 
     fig, ax = plt.subplots()
-    ax.set_xlabel("VSD (Voltage)")  # VSD = V1 - V3
+    ax.set_xlabel("VD (Voltage)")
     ax.set_ylabel("Delta V On Source (Voltage)")
-    ax.set_xlim(-3, 3)  # Adjusted limits for VSD = V1 - V3
+    ax.set_xlim(0, 5)
     ax.set_ylim(0, 1)
-    ax.legend(["I4 vs VSD"], loc="upper left")  # Updated legend
+    ax.legend(["I4 vs V2"], loc="upper left")
 
     canvas = FigureCanvasTkAgg(fig, master=parent)
     canvas.draw()
@@ -470,21 +477,14 @@ def update_plot(dac1_voltage):
 
     for i, dac1 in enumerate(data_by_dac1):
         color = plot_colors[i % len(plot_colors)]
-        # Calculate VSD = V1 - V3 (Source voltage - Drain voltage)
-        vsd_values = [
-            v1 - v3
-            for v1, v3 in zip(
-                data_by_dac1[dac1]["voltages1"], data_by_dac1[dac1]["voltages3"]
-            )
-        ]
         ax.plot(
-            vsd_values,
+            data_by_dac1[dac1]["voltages3"],
             data_by_dac1[dac1]["currents4"],
             label=f"DAC1 = {dac1:.2f} V",
             color=color,
         )
 
-    ax.set_xlabel("VSD (Voltage)")  # VSD = V1 - V3
+    ax.set_xlabel("VDS (Voltage)")
     ax.set_ylabel("Delta V (Voltage)")
     ax.legend(loc="upper left")
     ax.relim()

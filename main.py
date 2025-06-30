@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
+from PIL import Image, ImageTk
+import os
 from collect.collect_tab import collect_tab
 from analyze.analyze_tab import analyze_tab
 from plot.plot_tab import plot_tab
@@ -9,13 +11,10 @@ from settings.settings_tab import settings_tab
 def main():
     root = tk.Tk()
     root.title("OSDL OEGFET")
-    
 
-    
     sw = root.winfo_screenwidth()
     sh = root.winfo_screenheight()
 
-    # e.g. leave a 5% padding all around
     w = int(sw * 0.9)
     h = int(sh * 0.9)
     x = int((sw - w) / 2)
@@ -23,7 +22,7 @@ def main():
 
     root.geometry(f"{w}x{h}+{x}+{y}")
     # root.attributes('-fullscreen', True)
-    #root.geometry("800x360")
+    # root.geometry("800x360")
     root.configure(bg="lightgrey")
 
     style = ttk.Style()
@@ -45,6 +44,34 @@ def main():
 
     button_frame.place(relx=0.5, rely=0.5, anchor="center")
 
+    try:
+
+        logo_path = "OSDL-Logo.jpg"
+        if os.path.exists(logo_path):
+
+            pil_image = Image.open(logo_path)
+
+            max_width, max_height = 200, 150
+            pil_image.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
+
+            logo_image = ImageTk.PhotoImage(pil_image)
+
+            logo_label = tk.Label(button_frame, image=logo_image)
+            logo_label.image = logo_image
+            logo_label.grid(row=0, column=2, padx=10, pady=(0, 10))
+        else:
+
+            logo_label = tk.Label(
+                button_frame, text="[OSDL Logo]", font=("Arial", 12), fg="gray"
+            )
+            logo_label.grid(row=0, column=2, padx=10, pady=(0, 10))
+    except Exception as e:
+
+        logo_label = tk.Label(
+            button_frame, text=f"[Logo Error: {str(e)}]", font=("Arial", 10), fg="red"
+        )
+        logo_label.grid(row=0, column=2, padx=10, pady=(0, 10))
+
     def switch_to_collect_and_analyze():
         notebook.select(tab_collect)
 
@@ -54,7 +81,7 @@ def main():
         command=switch_to_collect_and_analyze,
         width=15,
     )
-    collect_analyze_button.grid(row=0, column=2, padx=10, pady=5)
+    collect_analyze_button.grid(row=1, column=2, padx=10, pady=5)
 
     tab_collect = ttk.Frame(notebook)
     notebook.add(tab_collect, text="Collect")
@@ -72,14 +99,12 @@ def main():
     notebook.add(tab_settings, text="Settings")
     settings_tab(tab_settings)
 
-    
-
     def toggle_fullscreen(event=None):
-        is_fs = root.attributes('-fullscreen')
-        root.attributes('-fullscreen', not is_fs)
+        is_fs = root.attributes("-fullscreen")
+        root.attributes("-fullscreen", not is_fs)
 
-    root.bind('<F11>', toggle_fullscreen)
-    root.bind('<Escape>', lambda e: root.attributes('-fullscreen', False))
+    root.bind("<F11>", toggle_fullscreen)
+    root.bind("<Escape>", lambda e: root.attributes("-fullscreen", False))
 
     root.mainloop()
 
