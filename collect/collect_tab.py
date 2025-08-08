@@ -31,19 +31,14 @@ currents4, currents5, currents6 = [], [], []
 
 
 def collect_tab(tab_collect, root):
-    # Use grid for tab_collect to control column and row sizing
     tab_collect.grid_rowconfigure(0, weight=1) # Allow row 0 to expand vertically
     tab_collect.grid_columnconfigure(0, weight=0, minsize=380) # Left column (for controls, etc.) - don't expand horizontally
     tab_collect.grid_columnconfigure(1, weight=1) # Right column (for plot) - expand horizontally
 
-    # ─── Scrollable Left Pane Setup ────────────────────────────────────────────
-    # Remove width from here if you use pack_propagate(False) as well
     container = tk.Frame(tab_collect, bg="lightgrey")
     container.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
-    # You might still want pack_propagate(False) if you want a fixed width for the left pane
-    # For example, if you set a minsize on column 0 using grid_columnconfigure,
-    # and then use pack_propagate(False) on the container, the container will try to be that minsize.
-    container.pack_propagate(False) # Uncomment if you want a fixed width for the left pane
+
+    container.pack_propagate(False) 
 
     # 1) Canvas + scrollbar
     canvas = tk.Canvas(container, borderwidth=0, background="lightgrey")
@@ -53,33 +48,29 @@ def collect_tab(tab_collect, root):
     vscroll.pack(side="right", fill="y")
     canvas.pack(side="left", fill="both", expand=True)
 
-    # 2) Interior frame into which you'll pack everything
+
     scrollable_frame = tk.Frame(canvas, background="lightgrey")
     canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-    # 3) Update scrollregion whenever the interior frame changes size
     def on_configure(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
 
     def on_canvas_configure(event):
-        # Update the width of the scrollable_frame to match canvas width
+
         canvas.itemconfig(canvas_window, width=canvas.winfo_width())
 
     scrollable_frame.bind("<Configure>", on_configure)
     canvas.bind("<Configure>", on_canvas_configure)
 
-    # Enable mouse wheel scrolling
     def on_mousewheel(event):
         canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     canvas.bind("<MouseWheel>", on_mousewheel)  # Windows
     canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))  # Linux
     canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))  # Linux
-    # ────────────────────────────────────────────────────────────────────────────
 
-    # Now use scrollable_frame in place of left_frame_collect…
     notebook_collect = ttk.Notebook(scrollable_frame)
-    notebook_collect.pack(fill="both", expand=True) # Ensure notebook expands within scrollable_frame
+    notebook_collect.pack(fill="both", expand=True) 
 
     chip_name_entry, trial_name_entry = create_data_setup_frame(notebook_collect)
     params_entries = create_params_frame(notebook_collect)
@@ -88,9 +79,8 @@ def collect_tab(tab_collect, root):
         notebook_collect, chip_name_entry, trial_name_entry, params_entries, root
     )
 
-    # …and the right‐hand plot pane stays the same:
-    plot_frame_collect = tk.Frame(tab_collect) # No explicit width needed here, grid handles it
-    plot_frame_collect.grid(row=0, column=1, sticky="nswe") # Place in column 1, allow to expand
+    plot_frame_collect = tk.Frame(tab_collect) 
+    plot_frame_collect.grid(row=0, column=1, sticky="nswe")
     create_plot_frame(plot_frame_collect)
 
 def create_controls_frame(
@@ -220,7 +210,7 @@ def perform_data_collection(
             DAC.DAC8532_Out_Voltage(DAC8532.channel_B, dac1_voltage)
             DAC.DAC8532_Out_Voltage(DAC8532.channel_A, current_voltage)
             GPIO.output(LED_PIN, GPIO.HIGH)
-
+            time.sleep(0.05) # Allow time for DAC to settle
             ADC_Value = ADC.ADS1256_GetAll()
 
             v1 = ADC_Value[1] * 5.0 / 0x7FFFFF #vs
