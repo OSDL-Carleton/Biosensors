@@ -9,10 +9,15 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from . import ADS1256
 from . import DAC8532
-from .characterization import characterize_device
 
+LED_PIN = 14
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED_PIN, GPIO.OUT)
+SELECT_PIN = 26
+
+GPIO.setup(SELECT_PIN, GPIO.OUT)
+GPIO.output(SELECT_PIN, GPIO.LOW)
 
 ADC = ADS1256.ADS1256()
 DAC = DAC8532.DAC8532()
@@ -23,15 +28,7 @@ DAC.DAC8532_Out_Voltage(0x34, 3)
 collecting_data = False
 voltages1, voltages2, voltages3 = [], [], []
 voltages4, voltages5, voltages6 = [], [], []
-vsd_values, i_source_values, i_gate_values, i_drain_values, isd_values = (
-    [],
-    [],
-    [],
-    [],
-    [],
-)
-vsg_values = []
-mode = "output"
+vsd_values, i_source_values, i_drain_values, isd_values = [], [], [], []
 
 
 def collect_tab(tab_collect, root):
@@ -73,18 +70,11 @@ def collect_tab(tab_collect, root):
     notebook_collect = ttk.Notebook(scrollable_frame)
     notebook_collect.pack(fill="both", expand=True)
 
-    chip_name_entry, trial_name_entry, mode_var = create_data_setup_frame(
-        notebook_collect
-    )
+    chip_name_entry, trial_name_entry = create_data_setup_frame(notebook_collect)
     params_entries = create_params_frame(notebook_collect)
     create_console_log_frame(notebook_collect)
     create_controls_frame(
-        notebook_collect,
-        chip_name_entry,
-        trial_name_entry,
-        params_entries,
-        mode_var,
-        root,
+        notebook_collect, chip_name_entry, trial_name_entry, params_entries, root
     )
 
     plot_frame_collect = tk.Frame(tab_collect)
@@ -93,7 +83,7 @@ def collect_tab(tab_collect, root):
 
 
 def create_controls_frame(
-    parent, chip_name_entry, trial_name_entry, params_entries, mode_var, root
+    parent, chip_name_entry, trial_name_entry, params_entries, root
 ):
     frame_controls = tk.LabelFrame(
         parent, text="Controls", relief=tk.SUNKEN, borderwidth=2
@@ -101,8 +91,7 @@ def create_controls_frame(
     frame_controls.pack(fill="x", padx=10, pady=5)
 
     def on_run():
-        global collecting_data, mode
-        mode = mode_var.get()
+        global collecting_data
         sweep_start = float(params_entries["sweep_min"].get())
         sweep_end = float(params_entries["sweep_max"].get())
         sweep_step = float(params_entries["sweep_step"].get())
@@ -113,9 +102,8 @@ def create_controls_frame(
             else 120
         )
 
-        constant_voltage_values = [
-            float(v.strip())
-            for v in params_entries["constant_voltage"].get().split(",")
+        dac1_voltage_values = [
+            float(v.strip()) for v in params_entries["dac1_voltage"].get().split(",")
         ]
 
         collecting_data = True
@@ -125,7 +113,7 @@ def create_controls_frame(
             sweep_step,
             interval,
             duration,
-            constant_voltage_values,
+            dac1_voltage_values,
             root,
         )
 
@@ -145,84 +133,12 @@ def create_controls_frame(
 
         save_data(chip_name, trial_name, sweep_min, sweep_max, sweep_points)
 
-    def on_characterize():
-        chip_name = chip_name_entry.get()
-        trial_name = trial_name_entry.get()
-
-        import tkinter.messagebox as msgbox
-
-        if not data_by_dac1:
-            msgbox.showerror(
-                "No Data",
-                "No data available for characterization.\n\nPlease run data collection first.",
-            )
-            return
-
-        run_characterization = msgbox.askyesno(
-            "Device Characterization",
-            f"Run {mode} mode characterization analysis?\n\n"
-            f"This will:\n"
-            f"• Measure baseline noise\n"
-            f"• Extract device parameters\n"
-            f"• Generate plots and Excel files\n"
-            f"• Create summary report\n\n"
-            f"Chip: {chip_name}\n"
-            f"Trial: {trial_name}\n"
-            f"Mode: {mode.upper()}",
-        )
-
-        if run_characterization:
-            try:
-                base_dir = "/home/pi/Desktop/Biosensor V2/data"
-                chip_path = os.path.join(base_dir, chip_name)
-
-                print(f"\n{'='*60}")
-                print(f"STARTING DEVICE CHARACTERIZATION")
-                print(f"Mode: {mode.upper()}")
-                print(f"Chip: {chip_name}")
-                print(f"Trial: {trial_name}")
-                print(f"{'='*60}")
-
-                characterizer = characterize_device(
-                    data_by_dac1=data_by_dac1,
-                    mode=mode,
-                    ADC=ADC,
-                    save_path=chip_path,
-                    params_entries=params_entries,
-                    chip_name=chip_name,
-                    trial_name=trial_name,
-                )
-
-                msgbox.showinfo(
-                    "Characterization Complete",
-                    f"{mode.upper()} mode characterization completed successfully!\n\n"
-                    f"Results saved to:\n{characterizer.char_folder}\n\n"
-                    f"Check the folder for:\n"
-                    f"• Individual parameter plots (PNG + PDF)\n"
-                    f"• Excel data files\n"
-                    f"• Summary report",
-                )
-
-            except Exception as e:
-                msgbox.showerror(
-                    "Characterization Error",
-                    f"An error occurred during characterization:\n\n{str(e)}",
-                )
-                print(f"Characterization error: {e}")
-
     def on_reset():
         global voltages1, voltages2, voltages3, voltages4, voltages5, voltages6
-        global vsd_values, i_source_values, i_gate_values, i_drain_values, isd_values, vsg_values
+        global vsd_values, i_source_values, i_drain_values, isd_values
         voltages1, voltages2, voltages3 = [], [], []
         voltages4, voltages5, voltages6 = [], [], []
-        vsd_values, i_source_values, i_gate_values, i_drain_values, isd_values = (
-            [],
-            [],
-            [],
-            [],
-            [],
-        )
-        vsg_values = []
+        vsd_values, i_source_values, i_drain_values, isd_values = [], [], [], []
         reset_plot()
         reset_parameters(params_entries)
 
@@ -238,16 +154,6 @@ def create_controls_frame(
     reset_button = tk.Button(frame_controls, text="Reset", width=15, command=on_reset)
     reset_button.grid(row=1, column=1, padx=5, pady=5)
 
-    characterize_button = tk.Button(
-        frame_controls, text="Characterize Device", command=on_characterize
-    )
-    characterize_button.grid(
-        row=2, column=0, columnspan=2, padx=5, pady=(10, 5), sticky="ew"
-    )
-
-    frame_controls.grid_columnconfigure(0, weight=1)
-    frame_controls.grid_columnconfigure(1, weight=1)
-
 
 plot_colors = ["blue", "green", "red", "orange", "purple", "brown", "cyan", "magenta"]
 
@@ -255,17 +161,11 @@ data_by_dac1 = {}
 
 
 def perform_data_collection(
-    sweep_start,
-    sweep_end,
-    sweep_step,
-    interval,
-    duration,
-    constant_voltage_values,
-    root,
+    sweep_start, sweep_end, sweep_step, interval, duration, dac1_voltage_values, root
 ):
     global voltages1, voltages2, voltages3, voltages4, voltages5, voltages6
-    global vsd_values, vsg_values, i_source_values, i_drain_values, isd_values, data_by_dac1
-    global collecting_data, current_voltage, steps_taken, dac_index, mode
+    global vsd_values, i_source_values, i_drain_values, isd_values, data_by_dac1
+    global collecting_data, current_voltage, steps_taken, dac_index
 
     data_by_dac1 = {
         v: {
@@ -276,13 +176,11 @@ def perform_data_collection(
             "voltages5": [],
             "voltages6": [],
             "vsd": [],
-            "vsg": [],
             "i_source": [],
-            "i_gate": [],
             "i_drain": [],
             "isd": [],
         }
-        for v in constant_voltage_values
+        for v in dac1_voltage_values
     }
 
     number_of_steps = int((sweep_end - sweep_start) / sweep_step) + 1
@@ -292,11 +190,11 @@ def perform_data_collection(
     def collect_data():
         global collecting_data, current_voltage, steps_taken, dac_index
 
-        if dac_index >= len(constant_voltage_values) or not collecting_data:
+        if dac_index >= len(dac1_voltage_values) or not collecting_data:
             collecting_data = False
             return
 
-        constant_voltage = constant_voltage_values[dac_index]
+        dac1_voltage = dac1_voltage_values[dac_index]
         current_voltage = sweep_start
         steps_taken = 0
         end_time = time.time() + duration
@@ -304,61 +202,34 @@ def perform_data_collection(
         def collect_step():
             global current_voltage, steps_taken, dac_index
 
-            if not collecting_data:
-                return
+            if (
+                steps_taken >= number_of_steps
+                or time.time() >= end_time
+                or not collecting_data
+            ):
 
-            if steps_taken >= number_of_steps or time.time() >= end_time:
                 dac_index += 1
+
                 root.after(5000, collect_data)
                 return
 
-            if mode == "output":
-                DAC.DAC8532_Out_Voltage(DAC8532.channel_B, constant_voltage)
-                DAC.DAC8532_Out_Voltage(DAC8532.channel_A, current_voltage)
-            else:
-                DAC.DAC8532_Out_Voltage(DAC8532.channel_B, constant_voltage)
-                DAC.DAC8532_Out_Voltage(DAC8532.channel_A, current_voltage)
-
+            DAC.DAC8532_Out_Voltage(DAC8532.channel_B, dac1_voltage)
+            DAC.DAC8532_Out_Voltage(DAC8532.channel_A, current_voltage)
+            GPIO.output(LED_PIN, GPIO.HIGH)
             time.sleep(0.05)
             ADC_Value = ADC.ADS1256_GetAll()
 
-            adc1 = ADC_Value[1] * 5.0 / 0x7FFFFF
-            adc2 = ADC_Value[2] * 5.0 / 0x7FFFFF
-            adc3 = ADC_Value[3] * 5.0 / 0x7FFFFF
-            adc4 = ADC_Value[4] * 5.0 / 0x7FFFFF
-            adc5 = ADC_Value[5] * 5.0 / 0x7FFFFF
-            adc6 = ADC_Value[6] * 5.0 / 0x7FFFFF
+            v1 = ADC_Value[1] * 5.0 / 0x7FFFFF
+            v2 = ADC_Value[2] * 5.0 / 0x7FFFFF
+            v3 = ADC_Value[3] * 5.0 / 0x7FFFFF
+            v4 = ADC_Value[4] * 5.0 / 0x7FFFFF
+            v5 = ADC_Value[5] * 5.0 / 0x7FFFFF
+            v6 = ADC_Value[6] * 5.0 / 0x7FFFFF
 
-            v1 = adc1
-            v2 = adc2
-            v3 = adc3
-            v4 = adc4
-            v5 = adc5
-            v6 = adc6
-
-            i_source = (adc4 - adc1) / 100.0
-
-            if mode == "output":
-                i_drain = (adc6 - adc3) / 100.0
-                i_gate = (adc5 - adc2) / 1000.0
-                vsd = adc4 - adc6
-                vsg = adc4 - adc5
-
-                isd = i_source - i_drain
-                x_value = vsd
-                y_value = isd
-                x_label = "Vsd (V)"
-                y_label = "Isd (A)"
-            else:
-                i_drain = (adc5 - adc2) / 100.0
-                i_gate = (adc6 - adc3) / 1000.0
-                vsd = adc4 - adc5
-                vsg = adc4 - adc6
-
-                x_value = vsg
-                y_value = i_drain
-                x_label = "Vsg (V)"
-                y_label = "Id (A)"
+            vsd = v1 - v3
+            i_source = (v1 - v4) / 180.0
+            i_drain = (v3 - v6) / 180.0
+            isd = (i_source + i_drain) / 2.0
 
             voltages1.append(v1)
             voltages2.append(v2)
@@ -366,50 +237,36 @@ def perform_data_collection(
             voltages4.append(v4)
             voltages5.append(v5)
             voltages6.append(v6)
-            i_source_values.append(i_source)
-            i_gate_values.append(i_gate)
-            i_drain_values.append(i_drain)
             vsd_values.append(vsd)
-            vsg_values.append(vsg)
+            i_source_values.append(i_source)
+            i_drain_values.append(i_drain)
+            isd_values.append(isd)
 
-            if mode == "output":
-                isd_values.append(isd)
-                data_by_dac1[constant_voltage]["isd"].append(isd)
-
-            data_by_dac1[constant_voltage]["voltages1"].append(v1)
-            data_by_dac1[constant_voltage]["voltages2"].append(v2)
-            data_by_dac1[constant_voltage]["voltages3"].append(v3)
-            data_by_dac1[constant_voltage]["voltages4"].append(v4)
-            data_by_dac1[constant_voltage]["voltages5"].append(v5)
-            data_by_dac1[constant_voltage]["voltages6"].append(v6)
-            data_by_dac1[constant_voltage]["vsd"].append(vsd)
-            data_by_dac1[constant_voltage]["vsg"].append(vsg)
-            data_by_dac1[constant_voltage]["i_source"].append(i_source)
-            data_by_dac1[constant_voltage]["i_gate"].append(i_gate)
-            data_by_dac1[constant_voltage]["i_drain"].append(i_drain)
+            data_by_dac1[dac1_voltage]["voltages1"].append(v1)
+            data_by_dac1[dac1_voltage]["voltages2"].append(v2)
+            data_by_dac1[dac1_voltage]["voltages3"].append(v3)
+            data_by_dac1[dac1_voltage]["voltages4"].append(v4)
+            data_by_dac1[dac1_voltage]["voltages5"].append(v5)
+            data_by_dac1[dac1_voltage]["voltages6"].append(v6)
+            data_by_dac1[dac1_voltage]["vsd"].append(vsd)
+            data_by_dac1[dac1_voltage]["i_source"].append(i_source)
+            data_by_dac1[dac1_voltage]["i_drain"].append(i_drain)
+            data_by_dac1[dac1_voltage]["isd"].append(isd)
 
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            update_plot(constant_voltage, x_value, y_value, x_label, y_label)
+            update_plot(dac1_voltage)
 
-            if mode == "output":
-                log_entry = (
-                    f"Time: {current_time}\n"
-                    f"ADC1 (Src-): {adc1:.5f} V, ADC2 (Drn-): {adc2:.5f} V, ADC3 (Gate-): {adc3:.5f} V\n"
-                    f"ADC4 (Src+): {adc4:.5f} V, ADC5 (Drn+): {adc5:.5f} V, ADC6 (Gate+): {adc6:.5f} V\n"
-                    f"Vsd: {vsd:.5f} V, Is: {i_source:.6f} A, Ig: {i_gate:.6f} A, Id: {i_drain:.6f} A, Isd: {isd:.6f} A\n"
-                    "-----------------------------------------\n"
-                )
-            else:
-                log_entry = (
-                    f"Time: {current_time}\n"
-                    f"ADC1 (Src-): {adc1:.5f} V, ADC2 (Drn-): {adc2:.5f} V, ADC3 (Gate-): {adc3:.5f} V\n"
-                    f"ADC4 (Src+): {adc4:.5f} V, ADC5 (Drn+): {adc5:.5f} V, ADC6 (Gate+): {adc6:.5f} V\n"
-                    f"Vsg: {vsg:.5f} V, Is: {i_source:.6f} A, Ig: {i_gate:.6f} A, Id: {i_drain:.6f} A\n"
-                    "-----------------------------------------\n"
-                )
-
+            log_entry = (
+                f"Time: {current_time}\n"
+                f"V1: {v1:.5f} V, V2: {v2:.5f} V, V3: {v3:.5f} V\n"
+                f"V4: {v4:.5f} V, V5: {v5:.5f} V, V6: {v6:.5f} V\n"
+                f"Vsd: {vsd:.5f} V, Is: {i_source:.6f} A, Id: {i_drain:.6f} A, Isd: {isd:.6f} A\n"
+                "-----------------------------------------\n"
+            )
             output_text.insert(tk.END, log_entry)
             output_text.see(tk.END)
+
+            GPIO.output(LED_PIN, GPIO.LOW)
 
             current_voltage += sweep_step
             steps_taken += 1
@@ -423,6 +280,7 @@ def perform_data_collection(
 
 
 def save_data(chip_name, trial_name, sweep_min, sweep_max, sweep_points):
+
     base_dir = "/home/pi/Desktop/Biosensor V2/data"
     chip_path = os.path.join(base_dir, chip_name)
     if not os.path.exists(chip_path):
@@ -433,54 +291,29 @@ def save_data(chip_name, trial_name, sweep_min, sweep_max, sweep_points):
     trial_path = os.path.join(chip_path, trial_folder_name)
     os.makedirs(trial_path, exist_ok=True)
 
-    if mode == "output":
-        save_excel_file(
-            trial_path,
-            f"{trial_name}_VSD_ISID_{timestamp}.xlsx",
-            "OSDL Biosensor V1 - Output",
-            sweep_min,
-            sweep_max,
-            sweep_points,
-            current_key="i_drain",
-            x_key="vsd",
-            y_key="isd",
-        )
+    save_excel_file(
+        trial_path,
+        f"{trial_name}_VSD_ISID_{timestamp}.xlsx",
+        "OSDL Biosensor V1",
+        sweep_min,
+        sweep_max,
+        sweep_points,
+        current_key="i_drain",
+    )
 
-        save_excel_file(
-            trial_path,
-            f"{trial_name}_VSD_ISIG_{timestamp}.xlsx",
-            "OSDL Biosensor V1 - Output",
-            sweep_min,
-            sweep_max,
-            sweep_points,
-            current_key="i_source",
-            x_key="vsd",
-            y_key="isd",
-        )
-    else:
-        save_excel_file(
-            trial_path,
-            f"{trial_name}_VSG_IDIS_{timestamp}.xlsx",
-            "OSDL Biosensor V1 - Transfer",
-            sweep_min,
-            sweep_max,
-            sweep_points,
-            current_key="i_source",
-            x_key="vsg",
-            y_key="i_drain",
-        )
+    save_excel_file(
+        trial_path,
+        f"{trial_name}_VSD_ISIG_{timestamp}.xlsx",
+        "OSDL Biosensor V1",
+        sweep_min,
+        sweep_max,
+        sweep_points,
+        current_key="i_source",
+    )
 
 
 def save_excel_file(
-    directory,
-    filename,
-    title,
-    sweep_min,
-    sweep_max,
-    sweep_points,
-    current_key,
-    x_key,
-    y_key,
+    directory, filename, title, sweep_min, sweep_max, sweep_points, current_key
 ):
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
@@ -502,32 +335,25 @@ def save_excel_file(
     worksheet.append(headers)
 
     max_length = max(
-        len(data_by_dac1[dac1_voltage][x_key]) for dac1_voltage in data_by_dac1
+        len(data_by_dac1[dac1_voltage]["vsd"]) for dac1_voltage in data_by_dac1
     )
     for i in range(max_length):
         row_data = []
 
-        x_value = (
-            data_by_dac1[next(iter(data_by_dac1))][x_key][i]
-            if i < len(data_by_dac1[next(iter(data_by_dac1))][x_key])
+        vsd_value = (
+            data_by_dac1[next(iter(data_by_dac1))]["vsd"][i]
+            if i < len(data_by_dac1[next(iter(data_by_dac1))]["vsd"])
             else ""
         )
-        row_data.append(x_value)
+        row_data.append(vsd_value)
 
         for dac1_voltage in data_by_dac1:
-            if mode == "output":
-                y_value = (
-                    data_by_dac1[dac1_voltage][y_key][i]
-                    if i < len(data_by_dac1[dac1_voltage][y_key])
-                    else ""
-                )
-            else:
-                y_value = (
-                    data_by_dac1[dac1_voltage][y_key][i]
-                    if i < len(data_by_dac1[dac1_voltage][y_key])
-                    else ""
-                )
-            row_data.append(y_value)
+            isd_value = (
+                data_by_dac1[dac1_voltage]["isd"][i]
+                if i < len(data_by_dac1[dac1_voltage]["isd"])
+                else ""
+            )
+            row_data.append(isd_value)
 
         for dac1_voltage in data_by_dac1:
             current_value = (
@@ -545,21 +371,16 @@ def save_excel_file(
 
 
 def reset_plot():
-    global ax, canvas, mode
+    global ax, canvas
     ax.clear()
-    if mode == "output":
-        ax.set_xlabel("Vsd (V)")
-        ax.set_ylabel("Isd (A)")
-    else:
-        ax.set_xlabel("Vsg (V)")
-        ax.set_ylabel("Id (A)")
+    ax.set_xlabel("Vsd (V)")
+    ax.set_ylabel("Isd (A)")
     ax.set_xlim(-5, 5)
     ax.set_ylim(-1, 1)
     canvas.draw_idle()
 
 
 def reset_parameters(params_entries):
-    global mode
     params_entries["duration"].delete(0, tk.END)
     params_entries["duration"].insert(0, "120")
 
@@ -572,11 +393,11 @@ def reset_parameters(params_entries):
     params_entries["sweep_step"].delete(0, tk.END)
     params_entries["sweep_step"].insert(0, "-0.1")
 
-    params_entries["constant_voltage"].delete(0, tk.END)
-    params_entries["constant_voltage"].insert(0, "0.5")
-
     params_entries["step_interval"].delete(0, tk.END)
     params_entries["step_interval"].insert(0, "1")
+
+    params_entries["dac1_voltage"].delete(0, tk.END)
+    params_entries["dac1_voltage"].insert(0, "0.5")
 
 
 def create_data_setup_frame(parent):
@@ -599,26 +420,7 @@ def create_data_setup_frame(parent):
     trial_name_entry.grid(row=1, column=1, padx=5, pady=5)
     trial_name_entry.insert(0, "Trial 1")
 
-    tk.Label(frame_data_setup, text="Mode:").grid(
-        row=2, column=0, sticky="e", padx=5, pady=5
-    )
-
-    mode_var = tk.StringVar(value="output")
-
-    mode_frame = tk.Frame(frame_data_setup)
-    mode_frame.grid(row=2, column=1, padx=5, pady=5, sticky="w")
-
-    output_button = tk.Radiobutton(
-        mode_frame, text="Output", variable=mode_var, value="output", width=8
-    )
-    output_button.pack(side=tk.LEFT)
-
-    transfer_button = tk.Radiobutton(
-        mode_frame, text="Transfer", variable=mode_var, value="transfer", width=8
-    )
-    transfer_button.pack(side=tk.LEFT)
-
-    return chip_name_entry, trial_name_entry, mode_var
+    return chip_name_entry, trial_name_entry
 
 
 def create_params_frame(parent):
@@ -666,13 +468,13 @@ def create_params_frame(parent):
     step_interval_entry.insert(0, "1")
     params_entries["step_interval"] = step_interval_entry
 
-    tk.Label(frame_params, text="Constant Voltage (V):").grid(
+    tk.Label(frame_params, text="DAC1 Voltage (V):").grid(
         row=4, column=0, sticky="e", padx=5, pady=5
     )
-    constant_voltage_entry = tk.Entry(frame_params, width=20)
-    constant_voltage_entry.grid(row=4, column=1, columnspan=3, pady=5, sticky="w")
-    constant_voltage_entry.insert(0, "0.5")
-    params_entries["constant_voltage"] = constant_voltage_entry
+    dac1_voltage_entry = tk.Entry(frame_params, width=20)
+    dac1_voltage_entry.grid(row=4, column=1, columnspan=3, pady=5, sticky="w")
+    dac1_voltage_entry.insert(0, "0.5")
+    params_entries["dac1_voltage"] = dac1_voltage_entry
 
     return params_entries
 
@@ -702,32 +504,22 @@ def create_plot_frame(parent):
     canvas.draw()
 
 
-def update_plot(constant_voltage, x_value, y_value, x_label, y_label):
-    global fig, ax, canvas, plot_colors, data_by_dac1, mode
+def update_plot(dac1_voltage):
+    global fig, ax, canvas, plot_colors, data_by_dac1
 
     ax.clear()
 
-    if mode == "output":
-        for i, const_v in enumerate(data_by_dac1):
-            color = plot_colors[i % len(plot_colors)]
-            ax.plot(
-                data_by_dac1[const_v]["vsd"],
-                data_by_dac1[const_v]["isd"],
-                label=f"Gate = {const_v:.2f} V",
-                color=color,
-            )
-    else:
-        for i, const_v in enumerate(data_by_dac1):
-            color = plot_colors[i % len(plot_colors)]
-            ax.plot(
-                data_by_dac1[const_v]["vsg"],
-                data_by_dac1[const_v]["i_drain"],
-                label=f"Drain = {const_v:.2f} V",
-                color=color,
-            )
+    for i, dac1 in enumerate(data_by_dac1):
+        color = plot_colors[i % len(plot_colors)]
+        ax.plot(
+            data_by_dac1[dac1]["vsd"],
+            data_by_dac1[dac1]["isd"],
+            label=f"DAC1 = {dac1:.2f} V",
+            color=color,
+        )
 
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
+    ax.set_xlabel("Vsd (V)")
+    ax.set_ylabel("Isd (A)")
     ax.legend(loc="upper left")
     ax.relim()
     ax.autoscale_view()

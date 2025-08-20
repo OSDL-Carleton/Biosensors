@@ -1,0 +1,53 @@
+DEVICE CHARACTERIZATION SUMMARY
+==================================================
+Chip: thesis
+Trial: Trial 1
+Date: 2025-08-20 11:09:27
+
+Baseline Noise: 4345.77 µV RMS
+
+CONDITION: output_0.5V
+------------------------------
+ron: 828.6936739838122
+r_squared: 0.9833853813285276
+linear_region_end: 13
+gds: 7.549433146451e-05
+sat_region_start: 46
+snr_db: -8.756118581592743
+current_detection_limit: 0.013037297295120978
+dynamic_range_db: -17.181487424944
+noise_floor: 0.013037297295120978
+drift_rate_percent_per_hour: 2881.820105496789
+total_drift_percent: 52.032863015914245
+drift_rate_A_per_s: 1.2487314171201203e-05
+
+CONDITION: output_1.0V
+------------------------------
+ron: 1702.5983732788534
+r_squared: 0.9197586200406107
+linear_region_end: 13
+gds: 0.00010682205384634664
+sat_region_start: 46
+snr_db: -12.026890539857183
+current_detection_limit: 0.013037297295120978
+dynamic_range_db: -20.90344632697006
+noise_floor: 0.013037297295120978
+drift_rate_percent_per_hour: 1165.397005078678
+total_drift_percent: 21.04189036947613
+drift_rate_A_per_s: 3.5096836521371008e-06
+
+CONDITION: output_2.0V
+------------------------------
+ron: 3254.906572334153
+r_squared: 0.672879527679803
+linear_region_end: 13
+gds: 1.4611239072731035e-05
+sat_region_start: 46
+snr_db: -14.98278281660812
+current_detection_limit: 0.013037297295120978
+dynamic_range_db: -24.193918155495528
+noise_floor: 0.013037297295120978
+drift_rate_percent_per_hour: 364.3450345959009
+total_drift_percent: 6.578452013537099
+drift_rate_A_per_s: 7.827183844590644e-07
+

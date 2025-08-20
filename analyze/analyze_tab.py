@@ -19,7 +19,7 @@ chip_files = {
 
 
 def analyze_tab(tab_analyze):
-    # folder_path is now specifically for the selected directory for processing
+
     folder_path = tk.StringVar()
     # selected_folder_display will be for showing the folder name in the UI
     selected_folder_display = tk.StringVar(value="No file selected")
@@ -46,7 +46,7 @@ def analyze_tab(tab_analyze):
     plot_frame_analyze.grid(row=0, column=1, sticky="nswe")
 
     fig, ax = plt.subplots(figsize=(5, 3))
-    fig.subplots_adjust(left=0.15, right=0.95, top=0.9, bottom=0.15) # Default adjustments
+    fig.subplots_adjust(left=0.15, right=0.95, top=0.9, bottom=0.15) # Default 
     canvas = FigureCanvasTkAgg(fig, master=plot_frame_analyze)
     canvas_widget = canvas.get_tk_widget()
     toolbar = NavigationToolbar2Tk(canvas, plot_frame_analyze)
@@ -82,8 +82,6 @@ def analyze_tab(tab_analyze):
     prev_button.pack(side=tk.LEFT, padx=5)
     next_button.pack(side=tk.RIGHT, padx=5)
 
-
-# Modified create_data_setup_frame for Analyze tab
 def create_data_setup_frame(parent, folder_path_var, selected_folder_display_var):
     frame_data_setup = tk.LabelFrame(
         parent, text="Data Setup", relief=tk.SUNKEN, borderwidth=2
@@ -105,7 +103,7 @@ def create_data_setup_frame(parent, folder_path_var, selected_folder_display_var
         row=0, column=0, sticky="e", padx=5, pady=5
     )
     select_folder_button = tk.Button(
-        frame_data_setup, text="Browse", width=8, height=1, command=select_folder # Shrunk button
+        frame_data_setup, text="Browse", width=8, height=1, command=select_folder
     )
     select_folder_button.grid(row=0, column=1, padx=5, pady=5)
 
@@ -142,7 +140,7 @@ def create_console_log_frame(parent):
     return output_text_analyze
 
 
-# Modified create_controls_frame for Analyze tab
+
 def create_controls_frame(parent, folder_path, avg_isd_dict, log_widget, ax, canvas, fig):
     frame_controls = tk.LabelFrame(
         parent, text="Controls", relief=tk.SUNKEN, borderwidth=2

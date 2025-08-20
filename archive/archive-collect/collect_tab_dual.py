@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from . import ADS1256
 from . import DAC8532
-from .characterization import characterize_device
 
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
@@ -73,18 +72,11 @@ def collect_tab(tab_collect, root):
     notebook_collect = ttk.Notebook(scrollable_frame)
     notebook_collect.pack(fill="both", expand=True)
 
-    chip_name_entry, trial_name_entry, mode_var = create_data_setup_frame(
-        notebook_collect
-    )
+    chip_name_entry, trial_name_entry, mode_var = create_data_setup_frame(notebook_collect)
     params_entries = create_params_frame(notebook_collect)
     create_console_log_frame(notebook_collect)
     create_controls_frame(
-        notebook_collect,
-        chip_name_entry,
-        trial_name_entry,
-        params_entries,
-        mode_var,
-        root,
+        notebook_collect, chip_name_entry, trial_name_entry, params_entries, mode_var, root
     )
 
     plot_frame_collect = tk.Frame(tab_collect)
@@ -114,8 +106,7 @@ def create_controls_frame(
         )
 
         constant_voltage_values = [
-            float(v.strip())
-            for v in params_entries["constant_voltage"].get().split(",")
+            float(v.strip()) for v in params_entries["constant_voltage"].get().split(",")
         ]
 
         collecting_data = True
@@ -145,71 +136,6 @@ def create_controls_frame(
 
         save_data(chip_name, trial_name, sweep_min, sweep_max, sweep_points)
 
-    def on_characterize():
-        chip_name = chip_name_entry.get()
-        trial_name = trial_name_entry.get()
-
-        import tkinter.messagebox as msgbox
-
-        if not data_by_dac1:
-            msgbox.showerror(
-                "No Data",
-                "No data available for characterization.\n\nPlease run data collection first.",
-            )
-            return
-
-        run_characterization = msgbox.askyesno(
-            "Device Characterization",
-            f"Run {mode} mode characterization analysis?\n\n"
-            f"This will:\n"
-            f"• Measure baseline noise\n"
-            f"• Extract device parameters\n"
-            f"• Generate plots and Excel files\n"
-            f"• Create summary report\n\n"
-            f"Chip: {chip_name}\n"
-            f"Trial: {trial_name}\n"
-            f"Mode: {mode.upper()}",
-        )
-
-        if run_characterization:
-            try:
-                base_dir = "/home/pi/Desktop/Biosensor V2/data"
-                chip_path = os.path.join(base_dir, chip_name)
-
-                print(f"\n{'='*60}")
-                print(f"STARTING DEVICE CHARACTERIZATION")
-                print(f"Mode: {mode.upper()}")
-                print(f"Chip: {chip_name}")
-                print(f"Trial: {trial_name}")
-                print(f"{'='*60}")
-
-                characterizer = characterize_device(
-                    data_by_dac1=data_by_dac1,
-                    mode=mode,
-                    ADC=ADC,
-                    save_path=chip_path,
-                    params_entries=params_entries,
-                    chip_name=chip_name,
-                    trial_name=trial_name,
-                )
-
-                msgbox.showinfo(
-                    "Characterization Complete",
-                    f"{mode.upper()} mode characterization completed successfully!\n\n"
-                    f"Results saved to:\n{characterizer.char_folder}\n\n"
-                    f"Check the folder for:\n"
-                    f"• Individual parameter plots (PNG + PDF)\n"
-                    f"• Excel data files\n"
-                    f"• Summary report",
-                )
-
-            except Exception as e:
-                msgbox.showerror(
-                    "Characterization Error",
-                    f"An error occurred during characterization:\n\n{str(e)}",
-                )
-                print(f"Characterization error: {e}")
-
     def on_reset():
         global voltages1, voltages2, voltages3, voltages4, voltages5, voltages6
         global vsd_values, i_source_values, i_gate_values, i_drain_values, isd_values, vsg_values
@@ -238,16 +164,6 @@ def create_controls_frame(
     reset_button = tk.Button(frame_controls, text="Reset", width=15, command=on_reset)
     reset_button.grid(row=1, column=1, padx=5, pady=5)
 
-    characterize_button = tk.Button(
-        frame_controls, text="Characterize Device", command=on_characterize
-    )
-    characterize_button.grid(
-        row=2, column=0, columnspan=2, padx=5, pady=(10, 5), sticky="ew"
-    )
-
-    frame_controls.grid_columnconfigure(0, weight=1)
-    frame_controls.grid_columnconfigure(1, weight=1)
-
 
 plot_colors = ["blue", "green", "red", "orange", "purple", "brown", "cyan", "magenta"]
 
@@ -255,13 +171,7 @@ data_by_dac1 = {}
 
 
 def perform_data_collection(
-    sweep_start,
-    sweep_end,
-    sweep_step,
-    interval,
-    duration,
-    constant_voltage_values,
-    root,
+    sweep_start, sweep_end, sweep_step, interval, duration, constant_voltage_values, root
 ):
     global voltages1, voltages2, voltages3, voltages4, voltages5, voltages6
     global vsd_values, vsg_values, i_source_values, i_drain_values, isd_values, data_by_dac1
@@ -318,7 +228,7 @@ def perform_data_collection(
             else:
                 DAC.DAC8532_Out_Voltage(DAC8532.channel_B, constant_voltage)
                 DAC.DAC8532_Out_Voltage(DAC8532.channel_A, current_voltage)
-
+                
             time.sleep(0.05)
             ADC_Value = ADC.ADS1256_GetAll()
 
@@ -337,24 +247,25 @@ def perform_data_collection(
             v6 = adc6
 
             i_source = (adc4 - adc1) / 100.0
-
+            
             if mode == "output":
                 i_drain = (adc6 - adc3) / 100.0
                 i_gate = (adc5 - adc2) / 1000.0
                 vsd = adc4 - adc6
                 vsg = adc4 - adc5
-
-                isd = i_source - i_drain
-                x_value = vsd
-                y_value = isd
-                x_label = "Vsd (V)"
-                y_label = "Isd (A)"
             else:
                 i_drain = (adc5 - adc2) / 100.0
                 i_gate = (adc6 - adc3) / 1000.0
                 vsd = adc4 - adc5
                 vsg = adc4 - adc6
 
+            if mode == "output":
+                isd = i_source - i_drain
+                x_value = vsd
+                y_value = isd
+                x_label = "Vsd (V)"
+                y_label = "Isd (A)"
+            else:
                 x_value = vsg
                 y_value = i_drain
                 x_label = "Vsg (V)"
@@ -407,7 +318,7 @@ def perform_data_collection(
                     f"Vsg: {vsg:.5f} V, Is: {i_source:.6f} A, Ig: {i_gate:.6f} A, Id: {i_drain:.6f} A\n"
                     "-----------------------------------------\n"
                 )
-
+            
             output_text.insert(tk.END, log_entry)
             output_text.see(tk.END)
 
@@ -472,15 +383,7 @@ def save_data(chip_name, trial_name, sweep_min, sweep_max, sweep_points):
 
 
 def save_excel_file(
-    directory,
-    filename,
-    title,
-    sweep_min,
-    sweep_max,
-    sweep_points,
-    current_key,
-    x_key,
-    y_key,
+    directory, filename, title, sweep_min, sweep_max, sweep_points, current_key, x_key, y_key
 ):
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
@@ -602,20 +505,18 @@ def create_data_setup_frame(parent):
     tk.Label(frame_data_setup, text="Mode:").grid(
         row=2, column=0, sticky="e", padx=5, pady=5
     )
-
+    
     mode_var = tk.StringVar(value="output")
-
+    
     mode_frame = tk.Frame(frame_data_setup)
     mode_frame.grid(row=2, column=1, padx=5, pady=5, sticky="w")
-
-    output_button = tk.Radiobutton(
-        mode_frame, text="Output", variable=mode_var, value="output", width=8
-    )
+    
+    output_button = tk.Radiobutton(mode_frame, text="Output", variable=mode_var, 
+                                  value="output", width=8)
     output_button.pack(side=tk.LEFT)
-
-    transfer_button = tk.Radiobutton(
-        mode_frame, text="Transfer", variable=mode_var, value="transfer", width=8
-    )
+    
+    transfer_button = tk.Radiobutton(mode_frame, text="Transfer", variable=mode_var, 
+                                    value="transfer", width=8)
     transfer_button.pack(side=tk.LEFT)
 
     return chip_name_entry, trial_name_entry, mode_var

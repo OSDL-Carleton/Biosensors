@@ -16,11 +16,9 @@ canvas = None
 selected_file = None
 
 
-# --- Plot Tab related functions ---
-
 def plot_tab(tab_plot):
     global fig, ax, canvas, selected_file
-
+    
     tab_plot.grid_rowconfigure(0, weight=1)
     tab_plot.grid_columnconfigure(0, weight=0, minsize=250)
     tab_plot.grid_columnconfigure(1, weight=1)
@@ -108,7 +106,7 @@ def create_controls_frame(parent, main_tk_root):
     run_button.pack(padx=5, pady=10)
 
 
-# MODIFIED create_data_setup_frame for Plot tab with explicit column weights
+
 def create_data_setup_frame(parent):
     global selected_file, file_label
 
@@ -123,21 +121,9 @@ def create_data_setup_frame(parent):
     # Column 1: "Browse" button - give it no weight
     frame_data_setup.grid_columnconfigure(1, weight=0)
     # Column 2: This column will exist implicitly when columnspan is used,
-    # or explicitly if we needed a third element.
-    # The key here is that the label on row 1 will now occupy its own horizontal space.
-    # We rely on the `sticky="ew"` on the label itself to make it expand within its cell.
-    # For a label that spans columns 0 and 1, the column weights of 0 and 1 will determine
-    # how space is distributed. If both are 0, they take minimal space and the label
-    # will be truncated if the cell is too small.
 
-    # Let's add a column configure for column 1 to give it a bit of weight
-    # This will allow it to expand if needed, but not push column 0.
-    # We will adjust file_label's columnspan back to 2, and ensure column 1 can grow.
-    # This is a bit of trial and error for ideal layout.
     frame_data_setup.grid_columnconfigure(1, weight=1) # Let column 1 take available space
-    # The idea is that if the label is in a row below, it needs to expand correctly.
-    # Since `file_label` spans `columnspan=2`, it effectively takes space from both
-    # column 0 and 1. If column 1 has weight=1, it will expand.
+
 
     def select_file():
         global selected_file
@@ -147,7 +133,7 @@ def create_data_setup_frame(parent):
             filetypes=(("Excel files", "*.xlsx"), ("All files", "*.*")),
         )
         if selected_file:
-            # Display only the base name of the file to keep it short
+
             file_label.config(text=os.path.basename(selected_file))
             output_text.insert(tk.END, f"Selected file: {selected_file}\n")
             output_text.see(tk.END)
@@ -161,13 +147,12 @@ def create_data_setup_frame(parent):
     file_label = tk.Label(
         frame_data_setup,
         text="No file selected",
-        height=1, # Explicitly set height to 1 line
+        height=1,
         anchor="w",
         justify="left",
         bg="lightgrey",
     )
-    # Keep file_label in a new row (row=1) and make it span both columns (columnspan=2)
-    # This ensures it has its own dedicated horizontal space.
+
     file_label.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
 
