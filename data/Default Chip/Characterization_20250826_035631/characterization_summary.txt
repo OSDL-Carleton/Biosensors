@@ -1,0 +1,23 @@
+DEVICE CHARACTERIZATION SUMMARY
+==================================================
+Chip: Default Chip
+Trial: Trial 1
+Date: 2025-08-26 03:56:53
+
+Baseline Noise: 62.54 µV RMS
+
+CONDITION: output_0.0V
+------------------------------
+ron: 190.81529662442327
+r_squared: 0.0027447796833204308
+linear_region_end: 8
+gds: 0.7601821307941032
+sat_region_start: 28
+snr_db: -30.826376143422415
+current_detection_limit: 0.0001876101776771457
+dynamic_range_db: -33.10733998611455
+noise_floor: 0.0001876101776771457
+drift_rate_percent_per_hour: -11565.398645127594
+total_drift_percent: -128.50442939030663
+drift_rate_A_per_s: 3.585001744831674e-08
+

@@ -33,6 +33,8 @@ vsd_values, i_source_values, i_gate_values, i_drain_values, isd_values = (
 vsg_values = []
 mode = "output"
 
+GPIO.setup(4, GPIO.OUT)
+GPIO.output(4, GPIO.HIGH)
 
 def collect_tab(tab_collect, root):
     tab_collect.grid_rowconfigure(0, weight=1)
@@ -350,8 +352,8 @@ def perform_data_collection(
                 x_label = "Vsd (V)"
                 y_label = "Isd (A)"
             else:
-                i_drain = (adc5 - adc2) / 100.0
-                i_gate = (adc6 - adc3) / 1000.0
+                i_drain = (adc5 - adc2) / 1000.0
+                i_gate = (adc6 - adc3) / 100.0
                 vsd = adc4 - adc5
                 vsg = adc4 - adc6
 
@@ -394,16 +396,16 @@ def perform_data_collection(
             if mode == "output":
                 log_entry = (
                     f"Time: {current_time}\n"
-                    f"ADC1 (Src-): {adc1:.5f} V, ADC2 (Drn-): {adc2:.5f} V, ADC3 (Gate-): {adc3:.5f} V\n"
-                    f"ADC4 (Src+): {adc4:.5f} V, ADC5 (Drn+): {adc5:.5f} V, ADC6 (Gate+): {adc6:.5f} V\n"
+                    f"ADC1 (Src-): {adc1:.5f} V, ADC2 (Gate-): {adc2:.5f} V, ADC3 (Drn-): {adc3:.5f} V\n"
+                    f"ADC4 (Src+): {adc4:.5f} V, ADC5 (Gate+): {adc5:.5f} V, ADC6 (Drn+): {adc6:.5f} V\n"
                     f"Vsd: {vsd:.5f} V, Is: {i_source:.6f} A, Ig: {i_gate:.6f} A, Id: {i_drain:.6f} A, Isd: {isd:.6f} A\n"
                     "-----------------------------------------\n"
                 )
             else:
                 log_entry = (
                     f"Time: {current_time}\n"
-                    f"ADC1 (Src-): {adc1:.5f} V, ADC2 (Drn-): {adc2:.5f} V, ADC3 (Gate-): {adc3:.5f} V\n"
-                    f"ADC4 (Src+): {adc4:.5f} V, ADC5 (Drn+): {adc5:.5f} V, ADC6 (Gate+): {adc6:.5f} V\n"
+                    f"ADC1 (Src-): {adc1:.5f} V, ADC2 (Gate-): {adc2:.5f} V, ADC3 (Drn-): {adc3:.5f} V\n"
+                    f"ADC4 (Src+): {adc4:.5f} V, ADC5 (Gate+): {adc5:.5f} V, ADC6 (Drn+): {adc6:.5f} V\n"
                     f"Vsg: {vsg:.5f} V, Is: {i_source:.6f} A, Ig: {i_gate:.6f} A, Id: {i_drain:.6f} A\n"
                     "-----------------------------------------\n"
                 )
@@ -733,7 +735,6 @@ def update_plot(constant_voltage, x_value, y_value, x_label, y_label):
     ax.autoscale_view()
 
     canvas.draw_idle()
-
 
 def create_console_log_frame(parent):
     frame_output = tk.LabelFrame(
